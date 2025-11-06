@@ -33,7 +33,11 @@ data/processed/
 
 # MLflow tracking artifacts
 mlruns/
+mlflow.db
 
 # Model and processor artifacts
 models/
 processors/
+
+# Ignore Cursor workspace files
+*.code-workspace
