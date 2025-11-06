@@ -52,10 +52,13 @@ This project showcases several core MLOps practices:
 
 ### Prerequisites
 
-- Python 3.9+
-
+- Python 3.11.0
+- Conda environment to manage libraries
+- Cursor or VSCode for code edting
+- Github
+- Xterm
+- MLFlow
 - Docker Desktop
-
 - An AWS account with the AWS CLI configured
 
 ### 1. Local Setup
@@ -74,6 +77,8 @@ This project showcases several core MLOps practices:
     source venv/bin/activate
     ```
 
+    Update Python version in venv/pyvenv.cfg file to 3.11.5 in /opt path
+
 3.  **Install dependencies:**
 
     ```bash
@@ -91,10 +96,16 @@ This project showcases several core MLOps practices:
 
 2.  **Train the models:**
 
-    First, launch the MLflow UI in a separate terminal:
+    First, activate venv and then run MLFlow server with host and port (5001), with database pointer to store information. On Apple OS, port 5000 is used by ControlCenter (macOS Airplay), so we use a different port 5001.
 
     ```bash
-    mlflow ui
+    source venv/bin/activate && mlflow server --host 127.0.0.1 --port 5001 --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./mlruns
+    ```
+
+    Next, export the path for MLFlow as follows:
+
+    ```bash
+    export MLFLOW_TRACKING_URI="http://127.0.0.1:5001"
     ```
 
     Then, run the training script. This will create the `mlruns/` directory and log all experiments.
@@ -103,7 +114,7 @@ This project showcases several core MLOps practices:
     python src/train.py
     ```
 
-    You can view the results at `http://127.0.0.1:5000`.
+    You can view the results at `http://127.0.0.1:5001`.
 
 ### 3. Running the Application
 
@@ -118,21 +129,102 @@ This requires you to manually copy the best `model.pkl` from the `mlruns` direct
 python app.py
 ```
 
-The app will be available at `http://127.0.0.1:5001`.
+The app will be available at `http://127.0.0.1:4999`.
 
 **B. Using Docker (Recommended):**
 
 This method simulates the production environment.
 
 ```bash
-# 1. Build the Docker image
-docker build -t loan-default-app .
+# 1. Run Docker daemon
+open -a Docker
+
+# 2. Build the Docker image
+docker build -t loan-app .
 
 # 2. Run the container
-docker run -p 5000:5001 loan-default-app
+docker run -d -p 3000:4999 --name loan-app loan-default-prediction
 ```
 
-The app will be available at `http://localhost:5000`.
+The app will be available at `http://localhost:3000`. Port 4999 refers to the interal port that the Flask app is listening on. You can diagnose this by running the command `docker logs loan-ap` to find out which port is being used.
+
+
+
+
+## AWS Role & Permissions
+
+### IAM Policy
+
+```bash
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "ECRPermissions",
+            "Effect": "Allow",
+            "Action": [
+                "ecr:GetAuthorizationToken",
+                "ecr:BatchCheckLayerAvailability",
+                "ecr:GetDownloadUrlForLayer",
+                "ecr:BatchGetImage",
+                "ecr:DescribeRepositories",
+                "ecr:DescribeImages",
+                "ecr:BatchDeleteImage",
+                "ecr:InitiateLayerUpload",
+                "ecr:UploadLayerPart",
+                "ecr:CompleteLayerUpload",
+                "ecr:PutImage"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "ECSPermissions",
+            "Effect": "Allow",
+            "Action": [
+                "ecs:DescribeTaskDefinition",
+                "ecs:RegisterTaskDefinition",
+                "ecs:UpdateService",
+                "ecs:DescribeServices",
+                "ecs:DescribeClusters",
+                "ecs:ListTasks",
+                "ecs:DescribeTasks",
+                "ecs:RunTask",
+                "ecs:StopTask"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "IAMPassRole",
+            "Effect": "Allow",
+            "Action": [
+                "iam:PassRole"
+            ],
+            "Resource": [
+                "arn:aws:iam::*:role/ecsTaskExecutionRole",
+                "arn:aws:iam::*:role/ecsTaskRole"
+            ]
+        }
+    ]
+}
+```
+
+🏗️ AWS Managed Policies (Alternative)
+You can also use these AWS managed policies:
+For ECR:
+AmazonEC2ContainerRegistryPowerUser - Full access to ECR
+AmazonEC2ContainerRegistryReadOnly - Read-only access (not sufficient for push)
+For ECS:
+AmazonECS_FullAccess - Full access to ECS
+AmazonECS_TaskExecutionRolePolicy - For task execution
+🔧 Setup Instructions
+1. Create IAM User/Role:
+```bash
+# Create IAM user
+aws iam create-user --user-name github-actions-user
+
+# Attach policy
+aws iam attach-user-policy --user-name github-actions-user --policy-arn arn:aws:iam::YOUR-ACCOUNT:policy/GitHubActionsPolicy
+```
 
 ## CI/CD Pipeline
 

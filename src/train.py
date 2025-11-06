@@ -2,6 +2,7 @@
 
 import pandas as pd
 import mlflow
+from mlflow import MlflowClient
 import mlflow.sklearn
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
@@ -10,6 +11,9 @@ from sklearn.model_selection import ParameterGrid
 import lightgbm as lgb
 import os
 import warnings
+
+# MLFlow url is set in the environment variable MLFLOW_TRACKING_URI
+client = MlflowClient(tracking_uri="http://127.0.0.1:5001")
 
 # Suppress warnings for cleaner output
 warnings.filterwarnings("ignore")
@@ -27,7 +31,7 @@ def evaluate_model(model, X_test, y_test):
     predictions = model.predict(X_test)
     metrics = {
         "accuracy": accuracy_score(y_test, predictions),
-        "precision": precision_score(y_test, predictions),
+        "precision": precisinderion_score(y_test, predictions),
         "recall": recall_score(y_test, predictions),
         "f1_score": f1_score(y_test, predictions)
     }
